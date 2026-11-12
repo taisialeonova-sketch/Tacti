@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TACTISENSOR — осязание для роботов и протезов</title>
+<style>
+  :root {
+    --bg: #0B0E14;
+    --card: #151B26;
+    --border: #263042;
+    --cyan: #00E5FF;
+    --amber: #FF5E1A;
+    --text-head: #F8FAFC;
+    --text-body: #94A3B8;
+    --mono: 'JetBrains Mono', 'Roboto Mono', ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-body);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 2; }
+  .mono { font-family: var(--mono); }
+
+  /* ===== ФОН: «отпечатки пальцев» (SVG-линии) ===== */
+  .fingerprint-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.55;
+  }
+  .fingerprint-bg svg { width: 100%; height: 100%; }
+
+  /* ===== РАЗДЕЛИТЕЛЬ-«ПАПИЛЛЯРНАЯ ЛИНИЯ» ===== */
+  .divider { position: relative; height: 40px; margin: 0 auto; max-width: 1120px; z-index: 2; }
+  .divider svg { width: 100%; height: 100%; display: block; }
+
+  /* ===== HEADER ===== */
+  header.site {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(11,14,20,0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .logo { display: flex; align-items: center; gap: 10px; color: var(--text-head); font-weight: 700; letter-spacing: 0.04em; font-size: 15px; text-decoration: none; }
+  .logo img { height: 28px; width: auto; display: block; }
+  .logo .logo-placeholder {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--cyan), var(--amber));
+    display: flex; align-items: center; justify-content: center;
+    color: #0B0E14; font-weight: 800; font-size: 14px;
+  }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a { color: var(--text-body); text-decoration: none; font-size: 14px; transition: color .2s; }
+  .nav-links a:hover { color: var(--cyan); }
+  @media (max-width: 720px) { .nav-links { display: none; } }
+
+  /* ===== HERO ===== */
+  .hero { padding: 96px 0 80px; position: relative; z-index: 2; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+  @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } }
+  .hero h1 {
+    font-size: 52px; line-height: 1.08; font-weight: 800;
+    color: var(--text-head); letter-spacing: -0.02em; margin-bottom: 20px;
+  }
+  .hero h1 .accent-cyan { color: var(--cyan); }
+  .hero h1 .accent-amber { color: var(--amber); }
+  @media (max-width: 640px) { .hero h1 { font-size: 36px; } }
+  .hero p.sub { font-size: 19px; max-width: 560px; margin-bottom: 32px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+  .badge { font-size: 12px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-body); background: var(--card); }
+  .badge.resident { border-color: rgba(0,229,255,0.35); color: var(--cyan); }
+
+  .cta { position: relative; display: inline-flex; align-items: center; gap: 12px; background: var(--amber); color: #0B0E14; padding: 16px 28px; border-radius: 10px; font-weight: 700; font-size: 16px; text-decoration: none; transition: transform .2s, box-shadow .2s; }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,94,26,0.25); }
+  .cta .fp { width: 22px; height: 22px; position: relative; flex-shrink: 0; border-radius: 50%; background: radial-gradient(circle at 50% 50%, transparent 30%, #0B0E14 31%, #0B0E14 34%, transparent 35%), radial-gradient(circle at 50% 50%, transparent 48%, #0B0E14 49%, #0B0E14 52%, transparent 53%), radial-gradient(circle at 50% 50%, transparent 66%, #0B0E14 67%, #0B0E14 70%, transparent 71%); }
+
+  .hero-visual { position: relative; aspect-ratio: 1 / 1; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .hero-visual::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 55%, rgba(0,229,255,0.18) 0%, transparent 45%), radial-gradient(circle at 55% 50%, rgba(255,94,26,0.16) 0%, transparent 40%); pointer-events: none; }
+  .hero-visual .placeholder-text { position: relative; z-index: 1; text-align: center; padding: 24px; color: var(--text-body); font-size: 13px; }
+  .hero-visual .placeholder-text strong { display: block; color: var(--text-head); font-size: 15px; margin-bottom: 6px; }
+
+  /* ===== SECTIONS ===== */
+  section.block { padding: 80px 0; position: relative; z-index: 2; }
+  h2 { font-size: 34px; font-weight: 800; color: var(--text-head); letter-spacing: -0.01em; margin-bottom: 16px; }
+  .lead { font-size: 17px; max-width: 780px; }
+  .lead + .lead { margin-top: 14px; }
+
+  /* ===== ПРЕИМУЩЕСТВА (как у DOKA: 4 карточки с цифрой) ===== */
+  .adv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 36px; }
+  .adv { background: rgba(21,27,38,0.7); border: 1px solid var(--border); border-radius: 12px; padding: 28px; backdrop-filter: blur(4px); }
+  .adv .num { font-family: var(--mono); font-size: 34px; font-weight: 700; color: var(--cyan); line-height: 1; margin-bottom: 8px; }
+  .adv .num.amber { color: var(--amber); }
+  .adv h3 { color: var(--text-head); font-size: 17px; margin-bottom: 8px; }
+  .adv p { font-size: 14px; }
+
+  /* ===== РЕШЕНИЯ (карусель с ползунком) ===== */
+  .slider { position: relative; margin-top: 36px; }
+  .slider-track { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; scrollbar-width: thin; }
+  .slider-track::-webkit-scrollbar { height: 6px; }
+  .slider-track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .slide {
+    flex: 0 0 calc(33.333% - 14px); min-width: 260px; scroll-snap-align: start;
+    background: rgba(21,27,38,0.8); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; backdrop-filter: blur(4px);
+  }
+  @media (max-width: 900px) { .slide { flex: 0 0 calc(50% - 10px); } }
+  @media (max-width: 600px) { .slide { flex: 0 0 85%; } }
+  .slide-visual { aspect-ratio: 16 / 10; background: linear-gradient(135deg, rgba(0,229,255,0.08), rgba(255,94,26,0.08)); display: flex; align-items: center; justify-content: center; color: var(--text-body); font-size: 12px; text-align: center; padding: 16px; border-bottom: 1px solid var(--border); }
+  .slide-body { padding: 20px; }
+  .slide-body .tag { font-size: 11px; color: var(--cyan); font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+  .slide-body h3 { color: var(--text-head); font-size: 17px; margin: 6px 0 8px; }
+  .slide-body p { font-size: 13.5px; }
+  .slider-controls { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+  .slider-controls button {
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--card); color: var(--cyan); font-size: 18px; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .slider-controls button:hover { border-color: var(--cyan); background: rgba(0,229,255,0.08); }
+
+  /* ===== ЧЕРЕДОВАНИЕ ТЕКСТ/ВИЗУАЛ (как у DOKA about) ===== */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-top: 36px; }
+  .split.reverse .split-text { order: 2; }
+  .split.reverse .split-visual { order: 1; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; gap: 24px; } .split.reverse .split-text, .split.reverse .split-visual { order: initial; } }
+  .split-text h3 { color: var(--text-head); font-size: 24px; margin-bottom: 12px; }
+  .split-text p { font-size: 16px; }
+  .split-visual { position: relative; aspect-ratio: 4 / 3; background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text-body); font-size: 13px; text-align: center; padding: 20px; }
+  .split-visual::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 30% 30%, rgba(0,229,255,0.10), transparent 50%), radial-gradient(circle at 70% 70%, rgba(255,94,26,0.08), transparent 50%); pointer-events: none; }
+
+  /* ===== ЦИФРЫ КОМПАНИИ (как у DOKA) ===== */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; margin-top: 36px; }
+  .stat { text-align: center; padding: 24px 12px; border: 1px solid var(--border); border-radius: 12px; background: rgba(21,27,38,0.6); }
+  .stat .v { font-family: var(--mono); font-size: 38px; font-weight: 700; color: var(--cyan); line-height: 1; }
+  .stat .v.amber { color: var(--amber); }
+  .stat .l { font-size: 13px; margin-top: 8px; }
+
+  /* ===== KPI ГИПОТЕЗЫ ===== */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 36px; }
+  .kpi { background: rgba(21,27,38,0.75); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .kpi .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-body); margin-bottom: 8px; }
+  .kpi .value { font-family: var(--mono); font-size: 36px; font-weight: 700; color: var(--cyan); line-height: 1; }
+  .kpi .value.amber { color: var(--amber); }
+  .kpi .note { font-size: 12px; margin-top: 10px; color: #64748b; font-style: italic; }
+
+  /* ===== ИСТОРИЯ ===== */
+  .eras { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 36px; }
+  .era { background: rgba(21,27,38,0.7); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .era .years { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-bottom: 6px; }
+  .era h3 { color: var(--text-head); font-size: 16px; margin-bottom: 6px; }
+  .era p { font-size: 13px; }
+
+  /* ===== ТЕГИ ===== */
+  .tags { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .tag-pill { padding: 9px 16px; border-radius: 999px; font-size: 14px; border: 1px solid var(--border); color: var(--text-body); background: rgba(21,27,38,0.7); transition: color .2s, border-color .2s; }
+  .tag-pill:hover { color: var(--cyan); border-color: rgba(0,229,255,0.4); }
+
+  /* ===== ФОРМА СВЯЗИ (как у DOKA) ===== */
+  .contact-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; max-width: 720px; }
+  .contact-form input, .contact-form select, .contact-form textarea {
+    width: 100%; padding: 14px 16px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-head); font-size: 15px; font-family: inherit;
+  }
+  .contact-form input:focus, .contact-form select:focus, .contact-form textarea:focus {
+    outline: none; border-color: var(--cyan);
+  }
+  .contact-form .full { grid-column: 1 / -1; }
+  .contact-form button {
+    grid-column: 1 / -1; padding: 16px; background: var(--amber); color: #0B0E14;
+    border: none; border-radius: 10px; font-weight: 700; font-size: 16px; cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .contact-form button:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255,94,26,0.25); }
+
+  /* ===== FOOTER ===== */
+  footer { padding: 32px 0; text-align: center; font-size: 13px; color: #64748b; border-top: 1px solid var(--border); position: relative; z-index: 2; }
+
+  .disclaimer { margin-top: 24px; padding: 14px 18px; border-left: 3px solid var(--amber); background: rgba(255,94,26,0.05); font-size: 13px; color: var(--text-body); border-radius: 0 8px 8px 0; }
+
+  @media (max-width: 640px) {
+    section.block { padding: 56px 0; }
+    h2 { font-size: 26px; }
+    .hero { padding: 64px 0 56px; }
+    .contact-form { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ФОН: стилизованные линии отпечатка пальца -->
+<div class="fingerprint-bg" aria-hidden="true">
+  <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#263042" stroke-width="1">
+    <!-- Несколько концентрических дуг, имитирующих папиллярные линии -->
+    <path d="M -100 450 Q 300 100 720 450 T 1540 450" opacity="0.5"/>
+    <path d="M -100 480 Q 300 130 720 480 T 1540 480" opacity="0.4"/>
+    <path d="M -100 510 Q 300 160 720 510 T 1540 510" opacity="0.3"/>
+    <path d="M 200 -50 Q 500 300 720 300 T 1240 -50" opacity="0.25"/>
+    <path d="M 200 950 Q 500 600 720 600 T 1240 950" opacity="0.25"/>
+    <path d="M 0 200 Q 400 400 720 200 T 1440 200" opacity="0.2"/>
+    <path d="M 0 700 Q 400 500 720 700 T 1440 700" opacity="0.2"/>
+  </svg>
+</div>
+
+<!-- HEADER -->
+<header class="site">
+  <div class="container nav">
+    <a href="#" class="logo">
+      <span class="logo-placeholder">T</span>
+      TACTISENSOR
+    </a>
+    <nav class="nav-links">
+      <a href="#advantages">Преимущества</a>
+      <a href="#solutions">Решения</a>
+      <a href="#about">О компании</a>
+      <a href="#contact">Контакты</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <h1>Осязание для <span class="accent-cyan">роботов</span> и <span class="accent-amber">протезов</span></h1>
+      <p class="sub">Тактильные датчики, которые дают машине чувство касания — усилие, точку контакта и момент, когда предмет начинает выскальзывать. Без этого гуманоид не может выполнять тонкую работу, а протез остаётся инструментом, а не частью тела.</p>
+      <div class="badges">
+        <span class="badge resident">Резидент КРИТБИ</span>
+        <span class="badge resident">Резидент Сколково</span>
+        <span class="badge">Лауреат премии «Промышленная робототехника — 2026»</span>
+        <span class="badge">Номинант «Бизнес.Лидеры»</span>
+      </div>
+      <a href="#contact" class="cta"><span class="fp" aria-hidden="true"></span>Обсудить сотрудничество</a>
+    </div>
+    <div class="hero-visual">
+      <div class="placeholder-text">
+        <strong>Место под 3D-модель или фото</strong>
+        Здесь будет heatmap-визуализация: роботизированная кисть касается хрупкого объекта, свечение от циана к янтарю в точке контакта.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 0 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 28 Q 280 8 560 28 T 1120 28" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- ПРЕИМУЩЕСТВА (как у DOKA: 4 карточки) -->
+<section class="block" id="advantages">
+  <div class="container">
+    <h2>Почему это работает</h2>
+    <p class="lead">Четыре свойства, которые отличают тактильный интеллект от обычной роботизации.</p>
+    <div class="adv-grid">
+      <div class="adv">
+        <div class="num">01</div>
+        <h3>Осязание без переделки</h3>
+        <p>Датчик встраивается в палец и не требует замены робота или захвата.</p>
+      </div>
+      <div class="adv">
+        <div class="num amber">02</div>
+        <h3>Прогноз срыва</h3>
+        <p>Нейросеть распознаёт начало проскальзывания до того, как предмет упадёт.</p>
+      </div>
+      <div class="adv">
+        <div class="num">03</div>
+        <h3>Точность усилия</h3>
+        <p>Робот чувствует, с какой силой держит объект, и корректирует захват в реальном времени.</p>
+      </div>
+      <div class="adv">
+        <div class="num amber">04</div>
+        <h3>Импортонезависимость</h3>
+        <p>Собственные R&D-решения, магнитная матрица и электроника — без закрытых экосистем.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 40 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 12 Q 280 32 560 12 T 1120 12" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- РЕШЕНИЯ (карусель) -->
+<section class="block" id="solutions">
+  <div class="container">
+    <h2>Решения</h2>
+    <p class="lead">Тактильный датчик решает операции, которые обычным захватам недоступны. Листайте, чтобы посмотреть примеры.</p>
+    <div class="slider">
+      <div class="slider-track" id="sliderTrack">
+        <div class="slide">
+          <div class="slide-visual">Фото/видео: робот берёт хрупкий объект</div>
+          <div class="slide-body">
+            <div class="tag">Промышленность</div>
+            <h3>Хрупкие и неформованные объекты</h3>
+            <p>Робот уверенно берёт стекло, мягкую тару, фрукты — без деформации и боя.</p>
+          </div>
+        </div>
+        <div class="slide">
+          <div class="slide-visual">Фото/видео: сортировка на линии</div>
+          <div class="slide-body">
+            <div class="tag">Пищевая промышленность</div>
+            <h3>Сортировка и упаковка</h3>
+            <p>Укладка мягких подложек, колбасных изделий, хрупкой выпечки — без брака.</p>
+          </div>
+        </div>
+        <div class="slide">
+          <div class="slide-visual">Фото/видео: выкладка на полку</div>
+          <div class="slide-body">
+            <div class="tag">Ритейл</div>
+            <h3>Выкладка товара на полки</h3>
+            <p>Операция, которая сегодня почти не роботизируется. С осязанием — становится реальной.</p>
+          </div>
+        </div>
+        <div class="slide">
+          <div class="slide-visual">Фото/видео: гуманоидный палец</div>
+          <div class="slide-body">
+            <div class="tag">Гуманоиды</div>
+            <h3>Тонкие операции</h3>
+            <p>Осязание, без которого гуманоид не может выполнять работу, где нужен человек.</p>
+          </div>
+        </div>
+        <div class="slide">
+          <div class="slide-visual">Фото/видео: бионический протез</div>
+          <div class="slide-body">
+            <div class="tag">Протезы</div>
+            <h3>Ощущение касания</h3>
+            <p>Протез даёт человеку чувство контакта — он увереннее берёт хрупкие предметы.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slider-controls">
+        <button id="prevBtn" aria-label="Назад">‹</button>
+        <button id="nextBtn" aria-label="Вперёд">›</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 0 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 28 Q 280 8 560 28 T 1120 28" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- О КОМПАНИИ (чередование текст/визуал) -->
+<section class="block" id="about">
+  <div class="container">
+    <h2>О компании</h2>
+    <p class="lead">ООО «ИнтеллектСистемы» — красноярский DeepTech-стартап на стыке промышленной робототехники и биологии.</p>
+
+    <div class="split">
+      <div class="split-text">
+        <h3>Кто мы</h3>
+        <p>Мы разрабатываем тактильную сенсорику для промышленных роботов, гуманоидных платформ и бионических протезов. Наша технология — магнитная матрица, которая встраивается в палец и даёт машине осязание.</p>
+        <p>Мы находимся на стыке двух миров: тяжёлой промышленности с её требованиями к надёжности и точности, и биологии — с осязанием, нейронными сигналами и протезированием.</p>
+      </div>
+      <div class="split-visual">Фото команды / лаборатории</div>
+    </div>
+
+    <div class="split reverse">
+      <div class="split-text">
+        <h3>Наш подход</h3>
+        <p>Мы не продаём «ещё один датчик». Мы даём роботу то, чего ему не хватает для перехода от демонстраций к реальной работе — осязание. И делаем это так, чтобы производитель не переделывал свою конструкцию с нуля.</p>
+        <p>Наша цель — стать стандартом тактильной сенсорики для адаптивных, автономных и безопасных роботов.</p>
+      </div>
+      <div class="split-visual">Фото/видео: датчик крупным планом</div>
+    </div>
+
+    <!-- ЦИФРЫ КОМПАНИИ -->
+    <div class="stats">
+      <div class="stat"><div class="v">5</div><div class="l">TRL (лабораторный прототип)</div></div>
+      <div class="stat"><div class="v amber">9</div><div class="l">датчиков Холла в матрице 3×3</div></div>
+      <div class="stat"><div class="v">2</div><div class="l">гранта (Старт-ИИ, молодёжная лаборатория)</div></div>
+      <div class="stat"><div class="v amber">1</div><div class="l">патентная заявка на изобретение</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 40 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 12 Q 280 32 560 12 T 1120 12" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- KPI ГИПОТЕЗЫ -->
+<section class="block">
+  <div class="container">
+    <h2>Потенциальный эффект</h2>
+    <p class="lead">Ниже — ориентиры, которые мы проверяем в пилотах. Это гипотезы, а не гарантированные показатели: реальные цифры зависят от задачи, объекта и условий конкретного производства.</p>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="label">Брак при сложных операциях</div>
+        <div class="value amber">10% → 1,5%</div>
+        <div class="note">Гипотеза. Проверяется в пилотном проекте.</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Точность усилия</div>
+        <div class="value">0,4 Н</div>
+        <div class="note">Гипотеза. Целевой ориентир — 0,1 Н.</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Координата нажатия</div>
+        <div class="value">1 мм</div>
+        <div class="note">Гипотеза. Целевой ориентир — 0,4 мм.</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Частота опроса</div>
+        <div class="value">200–400 Гц</div>
+        <div class="note">Гипотеза. Зависит от конфигурации.</div>
+      </div>
+    </div>
+    <div class="disclaimer">Все числовые показатели на этой странице — предварительные гипотезы проекта, а не публичная оферта и не гарантия результата. Фактический эффект определяется по итогам пилотных испытаний на площадке заказчика.</div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 0 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 28 Q 280 8 560 28 T 1120 28" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- ИСТОРИЯ -->
+<section class="block" id="history">
+  <div class="container">
+    <h2>История точности</h2>
+    <p class="lead">Пять эпох производства — и один и тот же компромисс между скоростью, ценой и качеством. Тактильный интеллект ломает этот компромисс.</p>
+    <div class="eras">
+      <div class="era"><div class="years">1200 → 1600</div><h3>Ремесло</h3><p>Идеальное качество, штучный результат, запредельная цена.</p></div>
+      <div class="era"><div class="years">1600 → 1913</div><h3>Мануфактура</h3><p>Разделение труда. Производительность выросла, контроль качества слабеет.</p></div>
+      <div class="era"><div class="years">1913 → 1959</div><h3>Конвейер</h3><p>Скорость решает всё. Человек стал частью системы.</p></div>
+      <div class="era"><div class="years">1959 → 2025</div><h3>Слепой робот</h3><p>Точны, но слепы. Жёсткий алгоритм против гибкой реальности.</p></div>
+      <div class="era" style="border-color: rgba(0,229,255,0.4);"><div class="years">2025 → ...</div><h3>Тактильный интеллект</h3><p>Осязание как революция. Брак падает, открываются новые операции.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 40 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 12 Q 280 32 560 12 T 1120 12" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- ДЛЯ КОГО -->
+<section class="block" id="forwhom">
+  <div class="container">
+    <h2>Для кого</h2>
+    <p class="lead">Мы работаем с производителями и интеграторами, которым нужна тактильная чувствительность в их продуктах.</p>
+    <div class="tags">
+      <span class="tag-pill">Промышленная робототехника</span>
+      <span class="tag-pill">Гуманоидные роботы</span>
+      <span class="tag-pill">Бионические протезы</span>
+      <span class="tag-pill">Пищевая промышленность</span>
+      <span class="tag-pill">Ритейл и логистика</span>
+      <span class="tag-pill">Приборостроение</span>
+      <span class="tag-pill">АПК</span>
+    </div>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="divider" aria-hidden="true">
+  <svg viewBox="0 0 1120 40" preserveAspectRatio="none" fill="none" stroke="#263042" stroke-width="1">
+    <path d="M0 20 Q 280 0 560 20 T 1120 20" opacity="0.7"/>
+    <path d="M0 28 Q 280 8 560 28 T 1120 28" opacity="0.4"/>
+  </svg>
+</div>
+
+<!-- КОНТАКТЫ + ФОРМА (как у DOKA) -->
+<section class="block" id="contact">
+  <div class="container">
+    <h2>Свяжитесь с нами</h2>
+    <p class="lead">Расскажите о вашей задаче — обсудим, подходит ли наше решение под пилот.</p>
+    <form class="contact-form" onsubmit="event.preventDefault(); alert('Форма-заглушка. Подключите обработчик (Formspree, почта или CRM).');">
+      <input type="text" placeholder="Имя" required>
+      <input type="email" placeholder="Почта" required>
+      <input type="text" placeholder="Компания" class="full">
+      <select class="full">
+        <option value="">Отрасль</option>
+        <option>Промышленная робототехника</option>
+        <option>Гуманоидные роботы</option>
+        <option>Бионические протезы</option>
+        <option>Пищевая промышленность</option>
+        <option>Ритейл и логистика</option>
+        <option>Приборостроение</option>
+        <option>АПК</option>
+        <option>Другое</option>
+      </select>
+      <textarea rows="3" placeholder="Коротко о задаче" class="full"></textarea>
+      <button type="submit">Отправить</button>
+    </form>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    ООО «ИнтеллектСистемы» · ОГРН 1252400024986 · ИНН 2464168624 · Резидент КРИТБИ с 09.02.2026 · Резидент Сколково
+  </div>
+</footer>
+
+<script>
+  // Простой слайдер: кнопки листают трек
+  const track = document.getElementById('sliderTrack');
+  const prev = document.getElementById('prevBtn');
+  const next = document.getElementById('nextBtn');
+  const step = () => {
+    const first = track.querySelector('.slide');
+    return first ? first.getBoundingClientRect().width + 20 : 300;
+  };
+  prev.addEventListener('click', () => track.scrollBy({ left: -step() * 1, behavior: 'smooth' }));
+  next.addEventListener('click', () => track.scrollBy({ left: step() * 1, behavior: 'smooth' }));
+</script>
+
+</body>
+</html>
